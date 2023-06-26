@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
-using UC2Api.Dto;
+using Stripe;
 
 namespace UC2Api.Controllers
 {
@@ -8,20 +7,13 @@ namespace UC2Api.Controllers
 	[Route("[controller]")]
 	public class BalanceController : ControllerBase
 	{
-		private readonly HttpClient _httpClient;
-		private readonly string? _apiUrl;
 		private readonly string? _stripeToken;
 
-		private const string BalanceTransactionsPath = "balance_transactions";
 		private const int MaxLimit = 100;
 		private const int DefaultItemsPerPage = 10;
-		
 
-
-		public BalanceController(HttpClient httpClient, IConfiguration configuration)
+		public BalanceController(IConfiguration configuration)
 		{
-			_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-			_apiUrl = configuration.GetSection("ApiSettings:StripeApiUrl")?.Value;
 			_stripeToken = configuration.GetSection("ApiSettings:StripeToken")?.Value;
 		}
 
@@ -30,24 +22,23 @@ namespace UC2Api.Controllers
 		{
 			try
 			{
-				var callUrl = $"{_apiUrl}/{BalanceTransactionsPath}";
+				StripeConfiguration.ApiKey = _stripeToken;
 
-				_httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_stripeToken}");
-
-				var response = await _httpClient.GetAsync(callUrl);
-
-				if (response.IsSuccessStatusCode)
+				var options = new BalanceTransactionListOptions
 				{
-					var result = await response.Content.ReadFromJsonAsync<BalanceTransactionsResponse>();
+					Limit = MaxLimit
+				};
 
-					return Ok(result?.Data);
-				}
-				else
-				{
-					return StatusCode((int)response.StatusCode);
-				}
+				var service = new BalanceTransactionService();
+				var balanceTransactions = await service.ListAsync(options);
+
+				return Ok(balanceTransactions.Data);
 			}
-			catch
+			catch (StripeException ex)
+			{
+				return StatusCode((int)ex.HttpStatusCode);
+			}
+			catch  
 			{
 				return StatusCode(500);
 			}
@@ -59,29 +50,28 @@ namespace UC2Api.Controllers
 		{
 			try
 			{
-				var callUrl = $"{_apiUrl}/{BalanceTransactionsPath}?limit={MaxLimit}";
+				StripeConfiguration.ApiKey = _stripeToken;
 
-				_httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_stripeToken}");
-
-				var response = await _httpClient.GetAsync(callUrl);
-
-				if (response.IsSuccessStatusCode)
+				var options = new BalanceTransactionListOptions
 				{
-					var btResponse = await response.Content.ReadFromJsonAsync<BalanceTransactionsResponse>();
+					Limit = MaxLimit
+				};
 
-					//Pagination
-					var pageNoVal = pageNo ?? 0;
-					var itemsPerPageVal = itemsPerPage ?? DefaultItemsPerPage;
-					var skipCount = itemsPerPageVal * pageNoVal;
+				var service = new BalanceTransactionService();
+				var balanceTransactions = await service.ListAsync(options);
 
-					var result = btResponse?.Data?.Skip(skipCount).Take(itemsPerPageVal);
-					
-					return Ok(result);
-				}
-				else
-				{
-					return StatusCode((int)response.StatusCode);
-				}
+				//Pagination
+				var pageNoVal = pageNo ?? 0;
+				var itemsPerPageVal = itemsPerPage ?? DefaultItemsPerPage;
+				var skipCount = itemsPerPageVal * pageNoVal;
+
+				var result = balanceTransactions.Data.Skip(skipCount).Take(itemsPerPageVal);
+
+				return Ok(result);
+			}
+			catch (StripeException ex)
+			{
+				return StatusCode((int)ex.HttpStatusCode);
 			}
 			catch
 			{
