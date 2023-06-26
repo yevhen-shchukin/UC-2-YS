@@ -67,7 +67,10 @@ namespace UC2Api.Controllers
 				var itemsPerPageVal = itemsPerPage ?? DefaultItemsPerPage;
 				var skipCount = itemsPerPageVal * pageNoVal;
 
-				var result = balanceTransactions.Data.Skip(skipCount).Take(itemsPerPageVal);
+				var result = balanceTransactions.Data
+					.Skip(skipCount)
+					.Take(itemsPerPageVal)
+					.ToList();
 
 				return Ok(result);
 			}
