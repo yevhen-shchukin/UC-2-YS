@@ -32,7 +32,9 @@ namespace UC2Api.Controllers
 				var service = new BalanceTransactionService();
 				var balanceTransactions = await service.ListAsync(options);
 
-				return Ok(balanceTransactions.Data);
+				var result = balanceTransactions.Data;
+
+				return Ok(result);
 			}
 			catch (StripeException ex)
 			{
